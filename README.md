@@ -11,6 +11,8 @@ AWS の GPU インスタンス等を使った DeepLearning 系の環境構築・
 1. インスタンス上でのデータダウンロードと学習（もしくは任意のタスク）実行
 1. 学習完了後の通知とインスタンス削除
 
+![Graph](./imgage_for_doc/graph.png)
+
 ## ベースにした記事・プログラム
 このプログラムは [AWS Step FunctionsとLambdaでディープラーニングの訓練を全自動化する](http://mizti.hatenablog.com/entry/deeplearningwithawsstepfunction) を以下の点で自分用に改造したものです。
 
