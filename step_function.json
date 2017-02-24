@@ -1,0 +1,149 @@
+{
+  "Comment" : "Machine learning execution with spot instance",
+  "StartAt" : "Initialize",
+  "States"  : {
+    "Initialize": {
+      "Type"      : "Task",
+      "Resource"  : "arn:aws:lambda:us-west-2:1111111111111111:function:initialize_step_function",
+      "Next"      : "NotifyStartMessage",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError"
+          }
+      ]
+    },
+    "NotifyStartMessage" : {
+      "Type" : "Task",
+      "Resource": "arn:aws:lambda:us-west-2:1111111111111111:function:send_notification",
+      "Next": "ValidateS3"
+    },
+    "ValidateS3": {
+      "Type"      : "Task",
+      "Resource"  : "arn:aws:lambda:us-west-2:1111111111111111:function:validate_s3",
+      "Next"      : "RequestSpotInstance",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError"
+          }
+      ]
+    },
+    "RequestSpotInstance": {
+      "Type"      : "Task",
+      "Resource"  : "arn:aws:lambda:us-west-2:1111111111111111:function:request_spot_instance",
+      "Next"      : "WaitBidding",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError"
+          }
+      ]
+    },
+    "WaitBidding": {
+      "Type"      : "Wait",
+      "Seconds"   : 5,
+      "Next"      : "CheckBiddingResult"
+    },
+    "CheckBiddingResult": {
+      "Type"      : "Task",
+      "Resource"  : "arn:aws:lambda:us-west-2:1111111111111111:function:check_bidding_result",
+      "Next": "ChoiceBiddingResult",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError"
+          }
+      ]
+    },
+    "ChoiceBiddingResult": {
+      "Type" : "Choice",
+      "Choices": [
+        {
+          "Variable": "$.bidding_status",
+          "StringEquals": "fulfilled",
+          "Next": "NotifyRequestSuccess"
+        },
+        {
+          "Variable": "$.bidding_status",
+          "StringEquals": "error",
+          "Next": "NotifyRequestFailed"
+        }
+      ],
+      "Default": "WaitBidding"
+    },
+    "NotifyRequestFailed": {
+      "Type" : "Task",
+      "Resource": "arn:aws:lambda:us-west-2:1111111111111111:function:send_notification",
+      "Next": "SpotRequestFailed"
+    },
+    "SpotRequestFailed": {
+          "Type": "Fail",
+          "Error": "SpotRequestError",
+          "Cause": "Spot price bidding too low"
+    },
+    "NotifyRequestSuccess": {
+      "Type" : "Task",
+      "Resource": "arn:aws:lambda:us-west-2:1111111111111111:function:send_notification",
+      "Next": "WaitTaskComplete"
+    },
+    "WaitTaskComplete": {
+      "Type"      : "Wait",
+      "Seconds"   : 10,
+      "Next"      : "CheckTaskCompleted"
+    },
+    "CheckTaskCompleted": {
+      "Type" : "Task",
+      "Resource": "arn:aws:lambda:us-west-2:1111111111111111:function:check_task_completed",
+      "Next": "ChoiceTaskCompleted",
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError"
+          }
+      ]
+    },
+    "ChoiceTaskCompleted": {
+      "Type" : "Choice",
+      "Choices": [
+        {
+          "Variable": "$.task_completed",
+          "BooleanEquals": true,
+          "Next": "NotifyTaskCompleted"
+        },
+        {
+          "Variable": "$.task_completed",
+          "BooleanEquals": false,
+          "Next": "WaitTaskComplete"
+        }
+      ],
+      "Default": "WaitTaskComplete"
+    },
+    "NotifyTaskCompleted":{
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-2:1111111111111111:function:send_notification",
+      "Next": "DeleteSpotInstance"
+    },
+    "DeleteSpotInstance": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-2:1111111111111111:function:delete_ec2_instance",
+      "End": true,
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "NotifyError"
+          }
+      ]
+    },
+    "NotifyError" : {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-west-2:1111111111111111:function:send_error_notification",
+      "Next": "Failed"
+    },
+    "Failed": {
+          "Type": "Fail",
+          "Error": "Error",
+          "Cause": "Error"
+    }
+  }
+}
